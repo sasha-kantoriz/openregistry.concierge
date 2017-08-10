@@ -11,7 +11,7 @@ requires = [
 
 entry_points = {
     'console_scripts': [
-        'labot_worker = openregistry.labot.worker.worker:main'
+        'labot_worker = openregistry.worker.worker:main'
     ]
 }
 
