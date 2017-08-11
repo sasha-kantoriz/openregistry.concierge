@@ -9,6 +9,14 @@ requires = [
     'requests'
 ]
 
+test_require = {
+    'test': [
+        'pytest',
+        'pytest-mock',
+        'pytest-cov'
+    ]
+}
+
 entry_points = {
     'console_scripts': [
         'labot_worker = openregistry.worker.worker:main'
@@ -35,5 +43,7 @@ setup(name='openregistry.labot.worker',
       include_package_data=True,
       zip_safe=False,
       install_requires=requires,
+      test_require=test_require,
+      extras_require={'test': test_require},
       entry_points=entry_points
       )

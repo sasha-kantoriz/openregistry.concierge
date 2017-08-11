@@ -10,4 +10,4 @@ LOTS_DB:
  view: "lots/by_dateModified"
 ASSETS_API_TOKEN: "bot"
 LOTS_API_TOKEN: "bot1"
-TIME_TO_SLEEP: 60
+TIME_TO_SLEEP: 10
