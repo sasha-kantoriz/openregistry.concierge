@@ -20,15 +20,15 @@ logger.addHandler(ch)
 
 
 class BotWorker(object):
-    def __init__(self, bot_conf):
+    def __init__(self, bot_conf, client):
         self.bot_conf = bot_conf
         self.sleep = self.bot_conf['TIME_TO_SLEEP']
-        self.lots_client = RegistryClient(
+        self.lots_client = client(
             key=self.bot_conf['LOTS_API_TOKEN'],
             host_url=self.bot_conf["API_URL"],
             api_version=self.bot_conf["API_VERSION"]
         )
-        self.assets_client = RegistryClient(
+        self.assets_client = client(
             resource="assets",
             key=self.bot_conf['ASSETS_API_TOKEN'],
             host_url=self.bot_conf["API_URL"],
@@ -128,7 +128,7 @@ def main():
 
     config_path = os.path.join(PWD, "bot_conf.yaml")
     config = yaml.load(open(config_path))
-    BotWorker(config).run()
+    BotWorker(config, RegistryClient).run()
 
 if __name__ == "__main__":
     main()
