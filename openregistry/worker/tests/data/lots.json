@@ -1,0 +1,37 @@
+{"35ad334815184a95a906e9b2020ae872":
+  {
+      "data": {
+          "status": "waiting",
+          "lotID": "UA-2017-08-14-000001",
+          "description": "Щось там тестове",
+          "title": "Тестовий лот 12232",
+          "lotType": "basic",
+          "id": "35ad334815184a95a906e9b2020ae872",
+          "date": "2017-08-14T13:51:17.075867+03:00",
+          "lotCustodian": {
+              "contactPoint": {
+                  "name": "Державне управління справами",
+                  "telephone": "0440000000"
+              },
+              "identifier": {
+                  "scheme": "UA-EDR",
+                  "id": "00037256",
+                  "uri": "http://www.dus.gov.ua/"
+              },
+              "name": "Державне управління справами",
+              "address": {
+                  "postalCode": "01220",
+                  "countryName": "Україна",
+                  "streetAddress": "вул. Банкова, 11, корпус 1",
+                  "region": "м. Київ",
+                  "locality": "м. Київ"
+              }
+          },
+          "owner": "broker",
+          "dateModified": "2017-08-14T13:51:17.091063+03:00",
+          "assets": [
+              "93312d374e4344b09f7c4876767b8f24"
+          ]
+      }
+  }
+}
