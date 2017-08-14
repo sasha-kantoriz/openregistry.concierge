@@ -57,9 +57,9 @@ class BotWorker(object):
         for asset_id in assets:
             try:
                 asset = self.assets_client.get_asset(asset_id).data
-            except RequestFailed:
-                logger.error('Falied to get asset')
-                raise RequestFailed
+            except RequestFailed as e:
+                logger.error('Falied to get asset: {}'.format(e.message))
+                raise RequestFailed('Failed to get assets')
             else:
                 logger.info('Successfully get asset {}'.format(asset_id))
                 if asset.status != 'pending':
