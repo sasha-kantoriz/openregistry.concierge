@@ -90,9 +90,9 @@ def test_check_lot_assets_available(bot, logger, mock_client):
     assert result is True
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
-    assert log_strings[0] == "Successfully get asset b30136280e2a4d8f8c3572d52b155741"
-    assert log_strings[1] == "Successfully get asset 49faa46e7b344234aa3bbe75866b55a8"
-    assert log_strings[2] == "Successfully get asset d70982e5d32647d0847e9f2f9b26439c"
+    assert log_strings[0] == "Successfully got asset b30136280e2a4d8f8c3572d52b155741"
+    assert log_strings[1] == "Successfully got asset 49faa46e7b344234aa3bbe75866b55a8"
+    assert log_strings[2] == "Successfully got asset d70982e5d32647d0847e9f2f9b26439c"
 
 
 def test_check_lot_assets_not_available(bot, logger, mock_client):
@@ -119,8 +119,8 @@ def test_check_lot_assets_not_available(bot, logger, mock_client):
     assert result is False
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
-    assert log_strings[0] == "Successfully get asset 137738e77e1c4a968a2f1c4226639854"
-    assert log_strings[1] == "Successfully get asset a7d2cbaf3e9242cea92daecb61a565dc"
+    assert log_strings[0] == "Successfully got asset 137738e77e1c4a968a2f1c4226639854"
+    assert log_strings[1] == "Successfully got asset a7d2cbaf3e9242cea92daecb61a565dc"
 
 
 def test_check_lot_asset_request_failed(bot, logger, mock_client):
@@ -214,9 +214,9 @@ def test_patch_assets_failed(bot, logger, mock_client):
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
     assert log_strings[0] == "Successfully patched asset 137738e77e1c4a968a2f1c4226639854 to active"
-    assert log_strings[1] == "Failed to patch asset b30136280e2a4d8f8c3572d52b155741 to active"
-    assert log_strings[2] == "Failed to patch asset 137738e77e1c4a968a2f1c4226639854 to active"
-    assert log_strings[3] == "Failed to patch asset 137738e77e1c4a968a2f1c4226639854 to active"
+    assert log_strings[1] == "Failed to patch asset b30136280e2a4d8f8c3572d52b155741 to active (Not described error yet.)"
+    assert log_strings[2] == "Failed to patch asset 137738e77e1c4a968a2f1c4226639854 to active (Not described error yet.)"
+    assert log_strings[3] == "Failed to patch asset 137738e77e1c4a968a2f1c4226639854 to active (Not described error yet.)"
 
 
 def test_patch_lot_success(bot, logger, mock_client):
@@ -354,7 +354,7 @@ def test_process_lots_success(bot, logger, mocker):
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
     assert log_strings[0] == "Getting lots"
-    assert log_strings[1] == "Get lots"
+    assert log_strings[1] == "Got lots"
     assert log_strings[2] == "Processing lot fd122ba678174a19affcb3a0edc96e0e"
     assert log_strings[3] == "Processing lot c5cd5530af8547439d02dcde60750567"
     assert log_strings[4] == "Processing lot dd36079db10f4b77b8dd77ca64299e95"
@@ -379,7 +379,7 @@ def test_process_lots_failed(bot, logger, mocker):
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
     assert log_strings[0] == "Could not get any lots"
-    assert log_strings[1] == "Get lots"
+    assert log_strings[1] == "Got lots"
     assert log_strings[2] == "Processing lot fd122ba678174a19affcb3a0edc96e0e"
     assert log_strings[3] == "Due to fail in getting assets, lot fd122ba678174a19affcb3a0edc96e0e is skipped"
 
