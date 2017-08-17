@@ -1,0 +1,21 @@
+---
+db:
+ host: "192.168.50.9"
+ name: "openregistry"
+ port: "5990"
+ login: "admin"
+ password: "admin"
+ view: "lots/by_dateModified"
+time_to_sleep: 10
+
+lots:
+  api:
+    url: "https://lb.api-sandbox.registry.ea.openprocurement.net"
+    token: "bot"
+    version: 0
+
+assets:
+  api:
+    url: "https://lb.api-sandbox.registry.ea.openprocurement.net"
+    token: "bot1"
+    version: 0

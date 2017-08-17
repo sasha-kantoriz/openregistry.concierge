@@ -1,7 +1,12 @@
-from setuptools import setup, find_packages
 import os
+from setuptools import setup, find_packages
 
-version = '1.0'
+here = os.path.abspath(os.path.dirname(__file__))
+
+with open(os.path.join(here, 'README.txt')) as f:
+    README = f.read()
+
+version = '0.1'
 
 requires = [
     'pyyaml',
@@ -23,27 +28,28 @@ entry_points = {
     ]
 }
 
-setup(name='openregistry.labot.worker',
-      version=version,
-      description="openregistry.labot.worker",
-      long_description=open("README.txt").read() + "\n" +
-                       open(os.path.join("docs", "HISTORY.txt")).read(),
-      # Get more strings from
-      # http://pypi.python.org/pypi?:action=list_classifiers
-      classifiers=[
-        "Programming Language :: Python",
-        ],
-      keywords='',
-      author='',
-      author_email='',
-      url='http://svn.plone.org/svn/collective/',
-      license='GPL',
-      packages=find_packages(exclude=['ez_setup']),
-      namespace_packages=['openregistry'],
-      include_package_data=True,
-      zip_safe=False,
-      install_requires=requires,
-      test_require=test_require,
-      extras_require={'test': test_require},
-      entry_points=entry_points
-      )
+setup(
+    name='openregistry.labot.worker',
+    version=version,
+    description="openregistry.labot.worker",
+    long_description=README,
+    classifiers=[
+      "Framework :: Pylons",
+      "License :: OSI Approved :: Apache Software License",
+      "Programming Language :: Python",
+      "Topic :: Internet :: WWW/HTTP",
+      "Topic :: Internet :: WWW/HTTP :: WSGI :: Application"
+    ],
+    keywords="web services",
+    author='Quintagroup, Ltd.',
+    author_email='info@quintagroup.com',
+    license='Apache License 2.0',
+    packages=find_packages(exclude=['ez_setup']),
+    namespace_packages=['openregistry'],
+    include_package_data=True,
+    zip_safe=False,
+    install_requires=requires,
+    test_require=test_require,
+    extras_require={'test': test_require},
+    entry_points=entry_points
+)
