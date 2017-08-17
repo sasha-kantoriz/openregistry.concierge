@@ -50,7 +50,6 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=requires,
-    test_require=test_require,
-    extras_require={'test': test_require},
+    extras_require={'test': test_require['test']},
     entry_points=entry_points
 )
