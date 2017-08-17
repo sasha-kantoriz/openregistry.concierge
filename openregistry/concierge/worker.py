@@ -10,9 +10,15 @@ from couchdb.http import RETRYABLE_ERRORS
 from openprocurement_client.registry_client import RegistryClient
 from openprocurement_client.exceptions import InvalidResponse, Forbidden, RequestFailed
 
-from .utils import prepare_couchdb
+from .utils import prepare_couchdb, continuous_changes_feed
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+ch.setFormatter(logging.Formatter('[%(asctime)s %(levelname)-5.5s] %(message)s'))
+logger.addHandler(ch)
+
 
 class BotWorker(object):
     def __init__(self, config, client):
@@ -34,32 +40,35 @@ class BotWorker(object):
 
     def run(self):
         logger.info("Starting worker")
-        while True:
-            for lot in self.get_lot():
-                self.process_lot(lot)
-            time.sleep(self.sleep)
+        for lot in self.get_lot():
+            self.process_lots(lot)
 
     def get_lot(self):
-        view = self.config['db']['view']
         logger.info("Getting lots")
         try:
-            for row in self.db.iterview(view, batch=10):
-                yield row.value
+            return continuous_changes_feed(self.db, timeout=self.sleep,
+                                           filter_doc=self.config['db']['filter'])
         except Exception, e:
             logger.error("Error while getting lots: {}".format(e))
-            
+
     def process_lots(self, lot):
         logger.info("Processing lot {}".format(lot['id']))
-        if lot['status'] == 'waiting':
+        if lot['status'] == 'verification':
             try:
                 assets_available = self.check_assets(lot)
             except RequestFailed:
                 logger.info("Due to fail in getting assets, lot {} is skipped".format(lot['id']))
             if assets_available:
-                self.patch_lot(lot, "active.pending")
-                self.patch_assets(lot, 'active', lot['id'])
+                try:
+                    self.patch_assets(lot, 'verification', lot['id'])
+                except Exception, e:
+                    self.patch_assets(lot, 'pending', lot['id']) #  XXX TODO repatch to  pending status
+                    logger.error("Error while pathching assets: {}".format(e))
+                else:
+                    self.patch_assets(lot, 'active', lot['id'])
+                    self.patch_lot(lot, "active.salable")
             else:
-                self.patch_lot(lot, "invalid")
+                self.patch_lot(lot, "pending")
         elif lot['status'] == 'dissolved':
             self.patch_assets(lot, 'pending')
 
@@ -88,8 +97,9 @@ class BotWorker(object):
         return True
 
     def patch_lot(self, lot, status):
+        lot['status'] = status
         try:
-            self.lots_client.patch_lot({"status": status})
+            self.lots_client.patch_lot({"data": lot})
         except (InvalidResponse, Forbidden, RequestFailed):
             logger.error("Failed to patch lot {} to {}".format(lot['id'], status))
             return False

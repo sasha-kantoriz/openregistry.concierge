@@ -11,7 +11,8 @@ version = '0.1'
 requires = [
     'pyyaml',
     'couchdb',
-    'requests'
+    'requests',
+    'openprocurement_client'
 ]
 
 test_require = {
@@ -53,4 +54,3 @@ setup(
     extras_require={'test': test_require},
     entry_points=entry_points
 )
-
