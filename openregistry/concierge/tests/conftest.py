@@ -4,7 +4,7 @@ import pytest
 
 from StringIO import StringIO
 
-from openregistry.worker.worker import BotWorker, logger as LOGGER
+from openregistry.concierge.worker import BotWorker, logger as LOGGER
 
 TEST_CONFIG = {
   "API_URL": "http://192.168.50.9:80/",

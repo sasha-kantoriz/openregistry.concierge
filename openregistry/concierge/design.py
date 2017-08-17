@@ -18,7 +18,7 @@ def sync_design(db):
     ViewDefinition.sync_many(db, views, callback=add_index_options)
 
 
-labot_view = ViewDefinition('lots', 'check_lot', '''function(doc) {
+concierge_view = ViewDefinition('lots', 'check_lot', '''function(doc) {
     var statuses = ['waiting', 'dissolved']
     if(doc.doc_type == 'Lot' && statuses.indexOf(doc.status) != 1) {
         var fields=%s, data={};

@@ -24,14 +24,14 @@ test_require = {
 
 entry_points = {
     'console_scripts': [
-        'labot_worker = openregistry.worker.worker:main'
+        'concierge_worker = openregistry.concierge.worker:main'
     ]
 }
 
 setup(
-    name='openregistry.labot.worker',
+    name='openregistry.concierge',
     version=version,
-    description="openregistry.labot.worker",
+    description="openregistry.concierge",
     long_description=README,
     classifiers=[
       "Framework :: Pylons",
@@ -53,3 +53,4 @@ setup(
     extras_require={'test': test_require},
     entry_points=entry_points
 )
+

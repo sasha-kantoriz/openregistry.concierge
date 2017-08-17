@@ -47,7 +47,7 @@ class BotWorker(object):
                 yield row.value
         except Exception, e:
             logger.error("Error while getting lots: {}".format(e))
-
+            
     def process_lots(self, lot):
         logger.info("Processing lot {}".format(lot['id']))
         if lot['status'] == 'waiting':
