@@ -36,7 +36,8 @@ class BotWorker(object):
             host_url=self.config['assets']['api']['url'],
             api_version=self.config['assets']['api']['version']
         )
-        self.db = prepare_couchdb(self.config['db']['url'], self.config['db']['name'], logger)
+        self.db = prepare_couchdb(self.config['db']['host'] + ':' + self.config['db']['port'],
+                                  self.config['db']['name'], logger)
 
     def run(self):
         logger.info("Starting worker")
@@ -100,7 +101,7 @@ class BotWorker(object):
         lot['status'] = status
         try:
             self.lots_client.patch_lot({"data": lot})
-        except (InvalidResponse, Forbidden, RequestFailed):
+        except (InvalidResponse, Forbidden, RequestFailed) as e:
             logger.error("Failed to patch lot {} to {}".format(lot['id'], status))
             return False
         else:
