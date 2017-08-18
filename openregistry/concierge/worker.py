@@ -36,8 +36,12 @@ class BotWorker(object):
             host_url=self.config['assets']['api']['url'],
             api_version=self.config['assets']['api']['version']
         )
-        self.db = prepare_couchdb(self.config['db']['host'] + ':' + self.config['db']['port'],
-                                  self.config['db']['name'], logger)
+        if (self.config['db'].get('login', '') and self.config['db'].get('password', '')):
+            db_url = "http://{login}:{password}@{host}:{port}".format(**self.config['db'])
+        else:
+            db_url = "http://{host}:{port}".format(**self.config['db'])
+
+        self.db = prepare_couchdb(db_url, self.config['db']['name'], logger)
 
     def run(self):
         logger.info("Starting worker")
