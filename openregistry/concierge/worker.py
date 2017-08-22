@@ -10,6 +10,7 @@ from openprocurement_client.exceptions import (
     Forbidden,
     InvalidResponse,
     RequestFailed,
+    ResourceNotFound
 )
 
 from .utils import prepare_couchdb, continuous_changes_feed
@@ -84,6 +85,9 @@ class BotWorker(object):
             try:
                 asset = self.assets_client.get_asset(asset_id).data
                 logger.info('Successfully got asset {}'.format(asset_id))
+            except ResourceNotFound as e:
+                logger.error('Falied to get asset {0}: {1}'.format(asset_id, e.message))
+                return False
             except RequestFailed as e:
                 logger.error('Falied to get asset {0}: {1}'.format(asset_id, e.message))
                 raise RequestFailed('Failed to get assets')
