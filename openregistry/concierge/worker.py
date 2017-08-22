@@ -49,9 +49,8 @@ class BotWorker(object):
             self.process_lots(lot)
 
     def get_lot(self):
-        logger.info("Getting lots")
         try:
-            return continuous_changes_feed(self.db, timeout=self.sleep,
+            return continuous_changes_feed(self.db, logger, timeout=self.sleep,
                                            filter_doc=self.config['db']['filter'])
         except Exception, e:
             logger.error("Error while getting lots: {}".format(e))
@@ -83,7 +82,7 @@ class BotWorker(object):
                 asset = self.assets_client.get_asset(asset_id).data
                 logger.info('Successfully got asset {}'.format(asset_id))
             except RequestFailed as e:
-                logger.error('Falied to get asset: {}'.format(e.message))
+                logger.error('Falied to get asset {0}: {1}'.format(asset_id, e.message))
                 raise RequestFailed('Failed to get assets')
             if asset.status != 'pending':
                 return False
@@ -95,7 +94,7 @@ class BotWorker(object):
             try:
                 self.assets_client.patch_asset(asset)
             except (InvalidResponse, Forbidden, RequestFailed) as e:
-                logger.error("Failed to patch asset {} to {} ({})".format(asset_id, status, e))
+                logger.error("Failed to patch asset {} to {} ({})".format(asset_id, status, e.message))
                 return False
             else:
                 logger.info("Successfully patched asset {} to {}".format(asset_id, status))
@@ -106,7 +105,7 @@ class BotWorker(object):
         try:
             self.lots_client.patch_lot({"data": lot})
         except (InvalidResponse, Forbidden, RequestFailed) as e:
-            logger.error("Failed to patch lot {} to {}".format(lot['id'], status))
+            logger.error("Failed to patch lot {} to {} ({})".format(lot['id'], status, e.message))
             return False
         else:
             logger.info("Successfully patched lot {} to {}".format(lot['id'], status))
