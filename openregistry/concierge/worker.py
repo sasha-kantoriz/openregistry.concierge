@@ -2,13 +2,15 @@
 import argparse
 import logging
 import os
-import time
 import yaml
 
-from couchdb.http import RETRYABLE_ERRORS
 
 from openprocurement_client.registry_client import RegistryClient
-from openprocurement_client.exceptions import InvalidResponse, Forbidden, RequestFailed
+from openprocurement_client.exceptions import (
+    Forbidden,
+    InvalidResponse,
+    RequestFailed,
+)
 
 from .utils import prepare_couchdb, continuous_changes_feed
 
@@ -36,7 +38,7 @@ class BotWorker(object):
             host_url=self.config['assets']['api']['url'],
             api_version=self.config['assets']['api']['version']
         )
-        if (self.config['db'].get('login', '') and self.config['db'].get('password', '')):
+        if self.config['db'].get('login', '') and self.config['db'].get('password', ''):
             db_url = "http://{login}:{password}@{host}:{port}".format(**self.config['db'])
         else:
             db_url = "http://{host}:{port}".format(**self.config['db'])
