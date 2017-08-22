@@ -64,17 +64,18 @@ class BotWorker(object):
                 assets_available = self.check_assets(lot)
             except RequestFailed:
                 logger.info("Due to fail in getting assets, lot {} is skipped".format(lot['id']))
-            if assets_available:
-                try:
-                    self.patch_assets(lot, 'verification', lot['id'])
-                except Exception, e:
-                    self.patch_assets(lot, 'pending', lot['id']) #  XXX TODO repatch to  pending status
-                    logger.error("Error while pathching assets: {}".format(e))
-                else:
-                    self.patch_assets(lot, 'active', lot['id'])
-                    self.patch_lot(lot, "active.salable")
             else:
-                self.patch_lot(lot, "pending")
+                if assets_available:
+                    try:
+                        self.patch_assets(lot, 'verification', lot['id'])
+                    except Exception, e:
+                        self.patch_assets(lot, 'pending', lot['id']) #  XXX TODO repatch to  pending status
+                        logger.error("Error while pathching assets: {}".format(e))
+                    else:
+                        self.patch_assets(lot, 'active', lot['id'])
+                        self.patch_lot(lot, "active.salable")
+                else:
+                    self.patch_lot(lot, "pending")
         elif lot['status'] == 'dissolved':
             self.patch_assets(lot, 'pending')
 
