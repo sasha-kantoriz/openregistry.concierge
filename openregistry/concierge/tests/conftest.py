@@ -8,11 +8,11 @@ from openregistry.concierge.worker import BotWorker, logger as LOGGER
 
 TEST_CONFIG = {
   "db": {
-    "host": "192.168.50.9",
+    "host": "127.0.0.1",
     "name": "lots_db",
-    "port": "5990",
-    "login": "admin",
-    "password": "admin",
+    "port": "5984",
+    "login": "",
+    "password": "ci",
     "filter": "lots/status"
   },
   "time_to_sleep": 10,
