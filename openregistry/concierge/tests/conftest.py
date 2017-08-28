@@ -7,30 +7,37 @@ from StringIO import StringIO
 from openregistry.concierge.worker import BotWorker, logger as LOGGER
 
 TEST_CONFIG = {
-  "API_URL": "http://192.168.50.9:80/",
-  "API_VERSION": "0.1",
-  "LOTS_DB": {
+  "db": {
     "host": "192.168.50.9",
-    "db": "openregistry",
+    "name": "lots_db",
     "port": "5990",
     "login": "admin",
     "password": "admin",
-    "view": "lots/by_dateModified"
+    "filter": "lots/status"
   },
-  "ASSETS_API_TOKEN": "bot",
-  "LOTS_API_TOKEN": "bot1",
-  "TIME_TO_SLEEP": 10
+  "time_to_sleep": 10,
+  "lots": {
+    "api": {
+      "url": "http://192.168.50.9",
+      "token": "concierge",
+      "version": 0
+    }
+  },
+  "assets": {
+    "api": {
+      "url": "http://192.168.50.9",
+      "token": "concierge",
+      "version": 0
+    }
+  }
 }
 
 
 @pytest.fixture(scope='function')
-def mock_client(mocker):
-    return mocker.patch('openprocurement_client.registry_client.RegistryClient', spec=True)
-
-
-@pytest.fixture(scope='function')
-def bot(mock_client):
-    return BotWorker(TEST_CONFIG, mock_client)
+def bot(mocker):
+    mocker.patch('openregistry.concierge.worker.LotsClient', autospec=True)
+    mocker.patch('openregistry.concierge.worker.AssetsClient', autospec=True)
+    return BotWorker(TEST_CONFIG)
 
 
 class LogInterceptor(object):
