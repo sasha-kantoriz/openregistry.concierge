@@ -7,29 +7,29 @@ from StringIO import StringIO
 from openregistry.concierge.worker import BotWorker, logger as LOGGER
 
 TEST_CONFIG = {
-  "db": {
-    "host": "127.0.0.1",
-    "name": "lots_db",
-    "port": "5984",
-    "login": "",
-    "password": "",
-    "filter": "lots/status"
-  },
-  "time_to_sleep": 10,
-  "lots": {
-    "api": {
-      "url": "http://192.168.50.9",
-      "token": "concierge",
-      "version": 0
+    "db": {
+        "host": "127.0.0.1",
+        "name": "lots_db",
+        "port": "5984",
+        "login": "",
+        "password": "",
+        "filter": "lots/status"
+    },
+    "time_to_sleep": 10,
+    "lots": {
+        "api": {
+            "url": "http://192.168.50.9",
+            "token": "concierge",
+            "version": 0
+        }
+    },
+    "assets": {
+        "api": {
+            "url": "http://192.168.50.9",
+            "token": "concierge",
+            "version": 0
+        }
     }
-  },
-  "assets": {
-    "api": {
-      "url": "http://192.168.50.9",
-      "token": "concierge",
-      "version": 0
-    }
-  }
 }
 
 
