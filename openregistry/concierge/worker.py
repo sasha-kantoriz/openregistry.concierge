@@ -5,7 +5,8 @@ import os
 import yaml
 
 
-from openprocurement_client.registry_client import LotsClient, AssetsClient
+from openprocurement_client.resources.lots import LotsClient
+from openprocurement_client.resources.assets import AssetsClient
 from openprocurement_client.exceptions import (
     Forbidden,
     InvalidResponse,
@@ -19,7 +20,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
-ch.setFormatter(logging.Formatter('[%(asctime)s %(levelname)-5.5s] %(message)s'))
+ch.setFormatter(
+    logging.Formatter('[%(asctime)s %(levelname)-5.5s] %(message)s')
+)
 logger.addHandler(ch)
 
 
@@ -28,19 +31,20 @@ class BotWorker(object):
         self.config = config
         self.sleep = self.config['time_to_sleep']
         self.lots_client = LotsClient(
-            resource="lots",
             key=self.config['lots']['api']['token'],
             host_url=self.config['lots']['api']['url'],
             api_version=self.config['lots']['api']['version']
         )
         self.assets_client = AssetsClient(
-            resource="assets",
             key=self.config['assets']['api']['token'],
             host_url=self.config['assets']['api']['url'],
             api_version=self.config['assets']['api']['version']
         )
-        if self.config['db'].get('login', '') and self.config['db'].get('password', ''):
-            db_url = "http://{login}:{password}@{host}:{port}".format(**self.config['db'])
+        if self.config['db'].get('login', '') \
+                and self.config['db'].get('password', ''):
+            db_url = "http://{login}:{password}@{host}:{port}".format(
+                **self.config['db']
+            )
         else:
             db_url = "http://{host}:{port}".format(**self.config['db'])
 
@@ -53,8 +57,10 @@ class BotWorker(object):
 
     def get_lot(self):
         try:
-            return continuous_changes_feed(self.db, logger, timeout=self.sleep,
-                                           filter_doc=self.config['db']['filter'])
+            return continuous_changes_feed(
+                self.db, logger, timeout=self.sleep,
+                filter_doc=self.config['db']['filter']
+            )
         except Exception, e:
             logger.error("Error while getting lots: {}".format(e))
 
@@ -64,14 +70,18 @@ class BotWorker(object):
             try:
                 assets_available = self.check_assets(lot)
             except RequestFailed:
-                logger.info("Due to fail in getting assets, lot {} is skipped".format(lot['id']))
+                logger.info(
+                    "Due to fail in getting assets, lot {} is skipped".format(
+                        lot['id']))
             else:
                 if assets_available:
                     try:
                         self.patch_assets(lot, 'verification', lot['id'])
                     except Exception, e:
-                        self.patch_assets(lot, 'pending', lot['id']) #  XXX TODO repatch to  pending status
-                        logger.error("Error while pathching assets: {}".format(e))
+                        #  XXX TODO repatch to  pending status
+                        self.patch_assets(lot, 'pending', lot['id'])
+                        logger.error(
+                            "Error while pathching assets: {}".format(e))
                     else:
                         self.patch_assets(lot, 'active', lot['id'])
                         self.patch_lot(lot, "active.salable")
@@ -86,10 +96,12 @@ class BotWorker(object):
                 asset = self.assets_client.get_asset(asset_id).data
                 logger.info('Successfully got asset {}'.format(asset_id))
             except ResourceNotFound as e:
-                logger.error('Falied to get asset {0}: {1}'.format(asset_id, e.message))
+                logger.error('Falied to get asset {0}: {1}'.format(asset_id,
+                                                                   e.message))
                 return False
             except RequestFailed as e:
-                logger.error('Falied to get asset {0}: {1}'.format(asset_id, e.message))
+                logger.error('Falied to get asset {0}: {1}'.format(asset_id,
+                                                                   e.message))
                 raise RequestFailed('Failed to get assets')
             if asset.status != 'pending':
                 return False
@@ -97,25 +109,36 @@ class BotWorker(object):
 
     def patch_assets(self, lot, status, related_lot=None):
         for asset_id in lot['assets']:
-            asset = {"data": {"id": asset_id, "status": status, "relatedLot": related_lot}}
+            asset = {
+                "data": {
+                    "id": asset_id,
+                    "status": status,
+                    "relatedLot": related_lot
+                }
+            }
             try:
-                self.assets_client.patch_resource_item(asset)
+                self.assets_client.patch_resource_item(asset_id, asset)
             except (InvalidResponse, Forbidden, RequestFailed) as e:
-                logger.error("Failed to patch asset {} to {} ({})".format(asset_id, status, e.message))
+                logger.error("Failed to patch asset {} to {} ({})".format(
+                    asset_id, status, e.message))
                 return False
             else:
-                logger.info("Successfully patched asset {} to {}".format(asset_id, status))
+                logger.info("Successfully patched asset {} to {}".format(
+                    asset_id, status))
         return True
 
     def patch_lot(self, lot, status):
         lot['status'] = status
         try:
-            self.lots_client.patch_resource_item({"data": lot})
+            self.lots_client.patch_resource_item(lot['id'], {"data": lot})
         except (InvalidResponse, Forbidden, RequestFailed) as e:
-            logger.error("Failed to patch lot {} to {} ({})".format(lot['id'], status, e.message))
+            logger.error("Failed to patch lot {} to {} ({})".format(lot['id'],
+                                                                    status,
+                                                                    e.message))
             return False
         else:
-            logger.info("Successfully patched lot {} to {}".format(lot['id'], status))
+            logger.info("Successfully patched lot {} to {}".format(lot['id'],
+                                                                   status))
             return True
 
 
@@ -127,6 +150,7 @@ def main():
         with open(params.config) as config_object:
             config = yaml.load(config_object.read())
         BotWorker(config).run()
+
 
 if __name__ == "__main__":
     main()
