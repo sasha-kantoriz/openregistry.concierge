@@ -12,7 +12,7 @@ TEST_CONFIG = {
     "name": "lots_db",
     "port": "5984",
     "login": "",
-    "password": "ci",
+    "password": "",
     "filter": "lots/status"
   },
   "time_to_sleep": 10,
