@@ -2,6 +2,7 @@
 import argparse
 import logging
 import os
+import time
 import yaml
 
 
@@ -52,8 +53,10 @@ class BotWorker(object):
 
     def run(self):
         logger.info("Starting worker")
-        for lot in self.get_lot():
-            self.process_lots(lot)
+        while True:
+            for lot in self.get_lot():
+                self.process_lots(lot)
+                break
 
     def get_lot(self):
         try:
@@ -75,16 +78,19 @@ class BotWorker(object):
                         lot['id']))
             else:
                 if assets_available:
-                    try:
-                        self.patch_assets(lot, 'verification', lot['id'])
-                    except Exception, e:
-                        #  XXX TODO repatch to  pending status
-                        self.patch_assets(lot, 'pending', lot['id'])
-                        logger.error(
-                            "Error while pathching assets: {}".format(e))
+                    result, patched_assets = self.patch_assets(lot, 'verification', lot['id'])
+                    if result is False:
+                        logger.info("Assets {} will be repatched to 'pending'".format(patched_assets))
+                        self.patch_assets({'assets': patched_assets}, 'pending')
                     else:
-                        self.patch_assets(lot, 'active', lot['id'])
-                        self.patch_lot(lot, "active.salable")
+                        result, patched_assets = self.patch_assets(lot, 'active', lot['id'])
+                        if result is False:
+                            logger.info("Assets {} will be repatched to 'pending'".format(patched_assets))
+                            self.patch_assets({'assets': patched_assets}, 'pending')
+                        else:
+                            result = self.patch_lot(lot, "active.salable")
+                            if result is False:
+                                self.patch_assets(lot, 'pending')
                 else:
                     self.patch_lot(lot, "pending")
         elif lot['status'] == 'dissolved':
@@ -107,8 +113,11 @@ class BotWorker(object):
                 return False
         return True
 
-    def patch_assets(self, lot, status, related_lot=None):
+    def patch_assets(self, lot, status, related_lot=None, retries=5, sleep=0.2):
+        patched_assets = []
         for asset_id in lot['assets']:
+            retries = retries
+            sleep = sleep
             asset = {
                 "data": {
                     "id": asset_id,
@@ -116,22 +125,31 @@ class BotWorker(object):
                     "relatedLot": related_lot
                 }
             }
-            try:
-                self.assets_client.patch_resource_item(asset_id, asset)
-            except (InvalidResponse, Forbidden, RequestFailed) as e:
-                logger.error("Failed to patch asset {} to {} ({})".format(
-                    asset_id, status, e.message))
-                return False
-            else:
-                logger.info("Successfully patched asset {} to {}".format(
-                    asset_id, status))
-        return True
+            while retries:
+                try:
+                    self.assets_client.patch_resource_item(asset_id, asset)
+                except (InvalidResponse, Forbidden, RequestFailed, ResourceNotFound) as e:
+                    retries -= 1
+                    if retries:
+                        time.sleep(sleep)
+                        sleep *= 2
+                        continue
+                    else:
+                        logger.error("Failed to patch asset {} to {} ({})".format(
+                            asset_id, status, e.message))
+                        return False, patched_assets
+                else:
+                    logger.info("Successfully patched asset {} to {}".format(
+                        asset_id, status))
+                    patched_assets.append(asset_id)
+                    break
+        return True, patched_assets
 
     def patch_lot(self, lot, status):
         lot['status'] = status
         try:
             self.lots_client.patch_resource_item(lot['id'], {"data": lot})
-        except (InvalidResponse, Forbidden, RequestFailed) as e:
+        except (InvalidResponse, Forbidden, RequestFailed, ResourceNotFound) as e:
             logger.error("Failed to patch lot {} to {} ({})".format(lot['id'],
                                                                     status,
                                                                     e.message))
