@@ -5,14 +5,14 @@ import os
 import time
 import yaml
 
-
 from openprocurement_client.resources.lots import LotsClient
 from openprocurement_client.resources.assets import AssetsClient
 from openprocurement_client.exceptions import (
     Forbidden,
     InvalidResponse,
     RequestFailed,
-    ResourceNotFound
+    ResourceNotFound,
+    UnprocessableEntity
 )
 
 from .utils import prepare_couchdb, continuous_changes_feed
@@ -25,6 +25,8 @@ ch.setFormatter(
     logging.Formatter('[%(asctime)s %(levelname)-5.5s] %(message)s')
 )
 logger.addHandler(ch)
+
+EXCEPTIONS = (InvalidResponse, Forbidden, RequestFailed, ResourceNotFound, UnprocessableEntity)
 
 
 class BotWorker(object):
@@ -88,9 +90,7 @@ class BotWorker(object):
                             logger.info("Assets {} will be repatched to 'pending'".format(patched_assets))
                             self.patch_assets({'assets': patched_assets}, 'pending')
                         else:
-                            result = self.patch_lot(lot, "active.salable")
-                            if result is False:
-                                self.patch_assets(lot, 'pending')
+                            self.patch_lot(lot, "active.salable")
                 else:
                     self.patch_lot(lot, "pending")
         elif lot['status'] == 'dissolved':
@@ -128,7 +128,7 @@ class BotWorker(object):
             while retries:
                 try:
                     self.assets_client.patch_resource_item(asset_id, asset)
-                except (InvalidResponse, Forbidden, RequestFailed, ResourceNotFound) as e:
+                except EXCEPTIONS as e:
                     retries -= 1
                     if retries:
                         time.sleep(sleep)
@@ -145,19 +145,25 @@ class BotWorker(object):
                     break
         return True, patched_assets
 
-    def patch_lot(self, lot, status):
-        lot['status'] = status
-        try:
-            self.lots_client.patch_resource_item(lot['id'], {"data": lot})
-        except (InvalidResponse, Forbidden, RequestFailed, ResourceNotFound) as e:
-            logger.error("Failed to patch lot {} to {} ({})".format(lot['id'],
-                                                                    status,
-                                                                    e.message))
-            return False
-        else:
-            logger.info("Successfully patched lot {} to {}".format(lot['id'],
-                                                                   status))
-            return True
+    def patch_lot(self, lot, status, retries=5, sleep=0.2):
+        while retries:
+            try:
+                self.lots_client.patch_resource_item(lot['id'], {"data": {"status": status}})
+            except EXCEPTIONS as e:
+                retries -= 1
+                if retries:
+                    time.sleep(sleep)
+                    sleep *= 2
+                    continue
+                else:
+                    logger.error("Failed to patch lot {} to {} ({})".format(lot['id'],
+                                                                            status,
+                                                                            e.message))
+                    return False
+            else:
+                logger.info("Successfully patched lot {} to {}".format(lot['id'],
+                                                                       status))
+                return True
 
 
 def main():
