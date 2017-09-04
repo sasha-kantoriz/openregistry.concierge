@@ -15,7 +15,13 @@ from openprocurement_client.exceptions import (
     UnprocessableEntity
 )
 
-from .utils import prepare_couchdb, continuous_changes_feed
+from .utils import (
+    broken_lot_resolved,
+    continuous_changes_feed,
+    log_broken_lot,
+    log_patch_to_db,
+    prepare_couchdb
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -52,18 +58,33 @@ class BotWorker(object):
             db_url = "http://{host}:{port}".format(**self.config['db'])
 
         self.db = prepare_couchdb(db_url, self.config['db']['name'], logger)
+        self.errors_doc = self.db.get('broken_lots')
+        self.patch_log_doc = self.db.get('patch_requests')
+        # self.broken_lots = {}
 
     def run(self):
         logger.info("Starting worker")
         while True:
             for lot in self.get_lot():
-                self.process_lots(lot)
-                break
+
+                # broken_lot = self.broken_lots.get(lot['id'], None)
+                broken_lot = self.errors_doc['broken_lots'].get(lot['id'], None)
+                if broken_lot:
+                    if broken_lot['rev'] == lot['rev']:
+                        continue
+                    else:
+                        # self.process_lots(self.broken_lots.pop(lot['id']))
+                        errors_doc = broken_lot_resolved(self.db, logger, self.errors_doc, lot['id'])
+                        self.process_lots(errors_doc['broken_lots'][lot['id']])
+                else:
+                    self.process_lots(lot)
+            # logger.debug('Broken lots: {}'.format(self.broken_lots.keys()))
+            time.sleep(self.sleep)
 
     def get_lot(self):
         try:
             return continuous_changes_feed(
-                self.db, logger, timeout=self.sleep,
+                self.db, logger,
                 filter_doc=self.config['db']['filter']
             )
         except Exception, e:
@@ -90,7 +111,15 @@ class BotWorker(object):
                             logger.info("Assets {} will be repatched to 'pending'".format(patched_assets))
                             self.patch_assets({'assets': patched_assets}, 'pending')
                         else:
-                            self.patch_lot(lot, "active.salable")
+                            result = self.patch_lot(lot, "active.salable")
+                            if result is False:
+                                # self.broken_lots[lot['id']] = lot
+                                broken_lots = log_broken_lot(self.db, logger, self.errors_doc, lot)
+                                logger.debug('Broken lots from db: {}'.format([
+                                    lot for lot in broken_lots['broken_lots'].keys()
+                                    if lot['resolved'] is False
+                                ]))
+
                 else:
                     self.patch_lot(lot, "pending")
         elif lot['status'] == 'dissolved':
@@ -141,6 +170,8 @@ class BotWorker(object):
                 else:
                     logger.info("Successfully patched asset {} to {}".format(
                         asset_id, status))
+                    log_patch_to_db(self.db, logger, self.patch_log_doc,
+                                    {"id": asset_id, "status": status, "resource_type": 'asset'})
                     patched_assets.append(asset_id)
                     break
         return True, patched_assets
@@ -163,6 +194,8 @@ class BotWorker(object):
             else:
                 logger.info("Successfully patched lot {} to {}".format(lot['id'],
                                                                        status))
+                log_patch_to_db(self.db, logger, self.patch_log_doc,
+                                {"id": lot['id'], "status": status, "resource_type": 'lot'})
                 return True
 
 
