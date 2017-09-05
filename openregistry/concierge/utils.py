@@ -1,26 +1,17 @@
 # -*- coding: utf-8 -*-
-import os
-
 from couchdb import Server, Session
-from datetime import datetime
 from socket import error
-from pytz import timezone
 
 from .design import sync_design
 
 CONTINUOUS_CHANGES_FEED_FLAG = True
-TZ = timezone(os.environ['TZ'] if 'TZ' in os.environ else 'Europe/Kiev')
 
 
 class ConfigError(Exception):
     pass
 
 
-def get_now():
-    return datetime.now(TZ)
-
-
-def prepare_couchdb(couch_url, db_name, logger):
+def prepare_couchdb(couch_url, db_name, logger, errors_doc):
     server = Server(couch_url, session=Session(retry_delays=range(10)))
     try:
         if db_name not in server:
@@ -28,13 +19,9 @@ def prepare_couchdb(couch_url, db_name, logger):
         else:
             db = server[db_name]
 
-        broken_lots = db.get('broken_lots', None)
+        broken_lots = db.get(errors_doc, None)
         if broken_lots is None:
-            db['broken_lots'] = {'broken_lots': {}}
-
-        patch_requests = db.get('patch_requests', None)
-        if patch_requests is None:
-            db['patch_requests'] = {'patch_requests': {}}
+            db[errors_doc] = {}
 
     except error as e:
         logger.error('Database error: {}'.format(e.message))
@@ -47,9 +34,11 @@ def continuous_changes_feed(db, logger, limit=100, filter_doc='lots/status'):
 
     last_seq_id = 0
     while CONTINUOUS_CHANGES_FEED_FLAG:
-        logger.info('Getting Lots')
-        data = db.changes(include_docs=True, since=last_seq_id, limit=limit,
-                          filter=filter_doc)
+        try:
+            data = db.changes(include_docs=True, since=last_seq_id, limit=limit, filter=filter_doc)
+        except error as e:
+            logger.error('Failed to get lots from DB: [Errno {}] {}'.format(e.errno, e.strerror))
+            break
         last_seq_id = data['last_seq']
         if len(data['results']) != 0:
             for row in data['results']:
@@ -65,21 +54,11 @@ def continuous_changes_feed(db, logger, limit=100, filter_doc='lots/status'):
             break
 
 
-def log_patch_to_db(db, logger, doc, resource):
-    try:
-        doc['patch_requests'][get_now().isoformat()] = resource
-        db.save(doc)
-    except error as e:
-        logger.error('Database error: {}'.format(e.message))
-        raise ConfigError(e.strerror)
-    else:
-        return doc
-
-
-def log_broken_lot(db, logger, doc, lot):
+def log_broken_lot(db, logger, doc, lot, message):
     lot['resolved'] = False
+    lot['message'] = message
     try:
-        doc['broken_lots'][lot['id']] = lot
+        doc[lot['id']] = lot
         db.save(doc)
     except error as e:
         logger.error('Database error: {}'.format(e.message))
@@ -88,9 +67,10 @@ def log_broken_lot(db, logger, doc, lot):
         return doc
 
 
-def broken_lot_resolved(db, logger, doc, lot_id):
+def resolve_broken_lot(db, logger, doc, lot):
     try:
-        doc['broken_lots'][lot_id]['resolved'] = True
+        doc[lot['id']]['resolved'] = True
+        doc[lot['id']]['rev'] = lot['rev']
         db.save(doc)
     except error as e:
         logger.error('Database error: {}'.format(e.message))

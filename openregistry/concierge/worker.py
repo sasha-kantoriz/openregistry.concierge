@@ -9,17 +9,15 @@ from openprocurement_client.resources.lots import LotsClient
 from openprocurement_client.resources.assets import AssetsClient
 from openprocurement_client.exceptions import (
     Forbidden,
-    InvalidResponse,
     RequestFailed,
     ResourceNotFound,
     UnprocessableEntity
 )
 
 from .utils import (
-    broken_lot_resolved,
+    resolve_broken_lot,
     continuous_changes_feed,
     log_broken_lot,
-    log_patch_to_db,
     prepare_couchdb
 )
 
@@ -32,7 +30,7 @@ ch.setFormatter(
 )
 logger.addHandler(ch)
 
-EXCEPTIONS = (InvalidResponse, Forbidden, RequestFailed, ResourceNotFound, UnprocessableEntity)
+EXCEPTIONS = (Forbidden, RequestFailed, ResourceNotFound, UnprocessableEntity)
 
 
 class BotWorker(object):
@@ -57,73 +55,81 @@ class BotWorker(object):
         else:
             db_url = "http://{host}:{port}".format(**self.config['db'])
 
-        self.db = prepare_couchdb(db_url, self.config['db']['name'], logger)
-        self.errors_doc = self.db.get('broken_lots')
+        self.db = prepare_couchdb(db_url, self.config['db']['name'], logger, self.config['errors_doc'])
+        self.errors_doc = self.db.get(self.config['errors_doc'])
         self.patch_log_doc = self.db.get('patch_requests')
-        # self.broken_lots = {}
 
     def run(self):
         logger.info("Starting worker")
         while True:
             for lot in self.get_lot():
-
-                # broken_lot = self.broken_lots.get(lot['id'], None)
-                broken_lot = self.errors_doc['broken_lots'].get(lot['id'], None)
+                broken_lot = self.errors_doc.get(lot['id'], None)
                 if broken_lot:
                     if broken_lot['rev'] == lot['rev']:
                         continue
                     else:
-                        # self.process_lots(self.broken_lots.pop(lot['id']))
-                        errors_doc = broken_lot_resolved(self.db, logger, self.errors_doc, lot['id'])
-                        self.process_lots(errors_doc['broken_lots'][lot['id']])
+                        errors_doc = resolve_broken_lot(self.db, logger, self.errors_doc, lot)
+                        self.process_lots(errors_doc[lot['id']])
                 else:
                     self.process_lots(lot)
-            # logger.debug('Broken lots: {}'.format(self.broken_lots.keys()))
             time.sleep(self.sleep)
 
     def get_lot(self):
-        try:
-            return continuous_changes_feed(
-                self.db, logger,
-                filter_doc=self.config['db']['filter']
-            )
-        except Exception, e:
-            logger.error("Error while getting lots: {}".format(e))
+        logger.info('Getting Lots')
+        return continuous_changes_feed(
+            self.db, logger,
+            filter_doc=self.config['db']['filter']
+        )
 
     def process_lots(self, lot):
-        logger.info("Processing lot {}".format(lot['id']))
+        lot_available = self.check_lot(lot)
+        if not lot_available:
+            logger.info("Skipping lot {}".format(lot['id']))
+            return
         if lot['status'] == 'verification':
+            logger.info("Processing lot {}".format(lot['id']))
             try:
                 assets_available = self.check_assets(lot)
             except RequestFailed:
-                logger.info(
-                    "Due to fail in getting assets, lot {} is skipped".format(
-                        lot['id']))
+                logger.info("Due to fail in getting assets, lot {} is skipped".format(lot['id']))
             else:
                 if assets_available:
                     result, patched_assets = self.patch_assets(lot, 'verification', lot['id'])
                     if result is False:
                         logger.info("Assets {} will be repatched to 'pending'".format(patched_assets))
-                        self.patch_assets({'assets': patched_assets}, 'pending')
+                        result = self.patch_assets({'assets': patched_assets}, 'pending')
+                        if result is False:
+                            log_broken_lot(self.db, logger, self.errors_doc, lot, 'patching assets to verification')
                     else:
                         result, patched_assets = self.patch_assets(lot, 'active', lot['id'])
                         if result is False:
                             logger.info("Assets {} will be repatched to 'pending'".format(patched_assets))
-                            self.patch_assets({'assets': patched_assets}, 'pending')
+                            result = self.patch_assets({'assets': patched_assets}, 'pending')
+                            if result is False:
+                                log_broken_lot(self.db, logger, self.errors_doc, lot, 'patching assets to active')
                         else:
                             result = self.patch_lot(lot, "active.salable")
                             if result is False:
-                                # self.broken_lots[lot['id']] = lot
-                                broken_lots = log_broken_lot(self.db, logger, self.errors_doc, lot)
-                                logger.debug('Broken lots from db: {}'.format([
-                                    lot for lot in broken_lots['broken_lots'].keys()
-                                    if lot['resolved'] is False
-                                ]))
-
+                                log_broken_lot(self.db, logger, self.errors_doc, lot, 'patching lot to active.salable')
                 else:
                     self.patch_lot(lot, "pending")
         elif lot['status'] == 'dissolved':
             self.patch_assets(lot, 'pending')
+
+    def check_lot(self, lot):
+        try:
+            lot = self.lots_client.get_lot(lot['id']).data
+            logger.info('Successfully got lot {}'.format(lot['id']))
+        except ResourceNotFound as e:
+            logger.error('Falied to get lot {0}: {1}'.format(lot['id'], e.message))
+            return False
+        except RequestFailed as e:
+            logger.error('Falied to get lot {0}. Status code: {1}'.format(lot['id'], e.status_code))
+            return False
+        if lot.status != 'verification':
+            logger.warning("Lot {0} can not be processed in current status ('{1}')".format(lot.id, lot.status))
+            return False
+        return True
 
     def check_assets(self, lot):
         for asset_id in lot['assets']:
@@ -135,68 +141,41 @@ class BotWorker(object):
                                                                    e.message))
                 return False
             except RequestFailed as e:
-                logger.error('Falied to get asset {0}: {1}'.format(asset_id,
-                                                                   e.message))
+                logger.error('Falied to get asset {0}. Status code: {1}'.format(asset_id, e.status_code))
                 raise RequestFailed('Failed to get assets')
             if asset.status != 'pending':
                 return False
         return True
 
-    def patch_assets(self, lot, status, related_lot=None, retries=5, sleep=0.2):
+    def patch_assets(self, lot, status, related_lot=None):
         patched_assets = []
         for asset_id in lot['assets']:
-            retries = retries
-            sleep = sleep
-            asset = {
-                "data": {
-                    "id": asset_id,
-                    "status": status,
-                    "relatedLot": related_lot
-                }
-            }
-            while retries:
-                try:
-                    self.assets_client.patch_resource_item(asset_id, asset)
-                except EXCEPTIONS as e:
-                    retries -= 1
-                    if retries:
-                        time.sleep(sleep)
-                        sleep *= 2
-                        continue
-                    else:
-                        logger.error("Failed to patch asset {} to {} ({})".format(
-                            asset_id, status, e.message))
-                        return False, patched_assets
-                else:
-                    logger.info("Successfully patched asset {} to {}".format(
-                        asset_id, status))
-                    log_patch_to_db(self.db, logger, self.patch_log_doc,
-                                    {"id": asset_id, "status": status, "resource_type": 'asset'})
-                    patched_assets.append(asset_id)
-                    break
-        return True, patched_assets
-
-    def patch_lot(self, lot, status, retries=5, sleep=0.2):
-        while retries:
+            asset = {"data": {"status": status, "relatedLot": related_lot}}
             try:
-                self.lots_client.patch_resource_item(lot['id'], {"data": {"status": status}})
+                self.assets_client.patch_resource_item(asset_id, asset)
             except EXCEPTIONS as e:
-                retries -= 1
-                if retries:
-                    time.sleep(sleep)
-                    sleep *= 2
-                    continue
-                else:
-                    logger.error("Failed to patch lot {} to {} ({})".format(lot['id'],
-                                                                            status,
-                                                                            e.message))
-                    return False
+                message = e.message
+                if e.status_code >= 500:
+                    message = 'Server error: {}'.fomat(e.status_code)
+                logger.error("Failed to patch asset {} to {} ({})".format(asset_id, status, message))
+                return False, patched_assets
             else:
-                logger.info("Successfully patched lot {} to {}".format(lot['id'],
-                                                                       status))
-                log_patch_to_db(self.db, logger, self.patch_log_doc,
-                                {"id": lot['id'], "status": status, "resource_type": 'lot'})
-                return True
+                logger.info("Successfully patched asset {} to {}".format(asset_id, status))
+                patched_assets.append(asset_id)
+            return True, patched_assets
+
+    def patch_lot(self, lot, status):
+        try:
+            self.lots_client.patch_resource_item(lot['id'], {"data": {"status": status}})
+        except EXCEPTIONS as e:
+            message = e.message
+            if e.status_code >= 500:
+                message = 'Server error: {}'.format(e.status_code)
+            logger.error("Failed to patch lot {} to {} ({})".format(lot['id'], status, message))
+            return False
+        else:
+            logger.info("Successfully patched lot {} to {}".format(lot['id'], status))
+            return True
 
 
 def main():
