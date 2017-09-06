@@ -101,10 +101,10 @@ class BotWorker(object):
                         if result is False:
                             log_broken_lot(self.db, logger, self.errors_doc, lot, 'patching assets to verification')
                     else:
-                        result, patched_assets = self.patch_assets(lot, 'active', lot['id'])
+                        result, _ = self.patch_assets(lot, 'active', lot['id'])
                         if result is False:
-                            logger.info("Assets {} will be repatched to 'pending'".format(patched_assets))
-                            result = self.patch_assets({'assets': patched_assets}, 'pending')
+                            logger.info("Assets {} will be repatched to 'pending'".format(lot['assets']))
+                            result = self.patch_assets(lot, 'pending')
                             if result is False:
                                 log_broken_lot(self.db, logger, self.errors_doc, lot, 'patching assets to active')
                         else:
@@ -126,7 +126,7 @@ class BotWorker(object):
         except RequestFailed as e:
             logger.error('Falied to get lot {0}. Status code: {1}'.format(lot['id'], e.status_code))
             return False
-        if lot.status != 'verification':
+        if lot.status != 'verification' or lot.status != 'dissolved':
             logger.warning("Lot {0} can not be processed in current status ('{1}')".format(lot.id, lot.status))
             return False
         return True
