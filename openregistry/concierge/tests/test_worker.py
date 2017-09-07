@@ -88,16 +88,16 @@ def test_run(bot, logger, mocker, almost_always_true):
 def test_patch_lot(bot, logger, mocker):
     with open(ROOT + 'lots.json') as lots:
         lots = load(lots)
-    mock_patch_resource_item = mocker.MagicMock()
+    mock_patch_lot = mocker.MagicMock()
     test_lot = deepcopy(lots[0])
     test_lot['data']['status'] = 'active.salable'
-    mock_patch_resource_item.side_effect = [
+    mock_patch_lot.side_effect = [
         munchify(test_lot),
         Forbidden(response=munchify({"text": "Operation is forbidden."})),
         RequestFailed(response=munchify({"text": "Request failed.", "status_code": 502})),
         UnprocessableEntity(response=munchify({"text": "Unprocessable Entity."}))
     ]
-    bot.lots_client.patch_resource_item = mock_patch_resource_item
+    bot.lots_client.patch_lot = mock_patch_lot
     lot = lots[0]['data']
     status = 'active.salable'
 
@@ -113,7 +113,7 @@ def test_patch_lot(bot, logger, mocker):
     result = bot.patch_lot(lot=lot, status=status)
     assert result is False
 
-    assert bot.lots_client.patch_resource_item.call_count == 4
+    assert bot.lots_client.patch_lot.call_count == 4
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
 
@@ -124,8 +124,8 @@ def test_patch_lot(bot, logger, mocker):
 
 
 def test_patch_assets_pending_success(bot, logger, mocker):
-    mock_patch_resource_item = mocker.MagicMock()
-    bot.assets_client.patch_resource_item = mock_patch_resource_item
+    mock_patch_asset = mocker.MagicMock()
+    bot.assets_client.patch_asset = mock_patch_asset
 
     with open(ROOT + 'lots.json') as lots:
         lots = load(lots)
@@ -136,7 +136,7 @@ def test_patch_assets_pending_success(bot, logger, mocker):
     lot = lots[1]['data']
     status = 'pending'
 
-    mock_patch_resource_item.side_effect = [
+    mock_patch_asset.side_effect = [
         munchify(assets[4]),
         munchify(assets[5]),
         munchify(assets[6]),
@@ -158,12 +158,12 @@ def test_patch_assets_pending_success(bot, logger, mocker):
     assert log_strings[2] == 'Successfully patched asset 8034c43e2d764006ad6e655e339e5fec to pending'
     assert log_strings[3] == 'Successfully patched asset 5545b519045a4637ab880f032960e034 to pending'
 
-    assert bot.assets_client.patch_resource_item.call_count == 4
+    assert bot.assets_client.patch_asset.call_count == 4
 
 
 def test_patch_assets_pending_fail(bot, logger, mocker):
-    mock_patch_resource_item = mocker.MagicMock()
-    bot.assets_client.patch_resource_item = mock_patch_resource_item
+    mock_patch_asset = mocker.MagicMock()
+    bot.assets_client.patch_asset = mock_patch_asset
 
     with open(ROOT + 'lots.json') as lots:
         lots = load(lots)
@@ -174,7 +174,7 @@ def test_patch_assets_pending_fail(bot, logger, mocker):
     lot = lots[1]['data']
     status = 'pending'
 
-    mock_patch_resource_item.side_effect = [
+    mock_patch_asset.side_effect = [
         munchify(assets[4]),
         RequestFailed(response=munchify({"text": "Bad Gateway", "status_code": 502})),
         munchify(assets[6]),
@@ -189,9 +189,9 @@ def test_patch_assets_pending_fail(bot, logger, mocker):
     assert log_strings[0] == 'Successfully patched asset 0a7eba27b22a454180d3a49b02a1842f to pending'
     assert log_strings[1] == 'Failed to patch asset 660cbb6e83c94c80baf47691732fd1b2 to pending (Server error: 502)'
 
-    assert bot.assets_client.patch_resource_item.call_count == 2
+    assert bot.assets_client.patch_asset.call_count == 2
 
-    mock_patch_resource_item.side_effect = [
+    mock_patch_asset.side_effect = [
         Forbidden(response=munchify({"text": "Operation is forbidden."})),
         munchify(assets[5]),
         munchify(assets[6]),
@@ -205,12 +205,12 @@ def test_patch_assets_pending_fail(bot, logger, mocker):
     log_strings = logger.log_capture_string.getvalue().split('\n')
     assert log_strings[2] == 'Failed to patch asset 0a7eba27b22a454180d3a49b02a1842f to pending (Operation is forbidden.)'
 
-    assert bot.assets_client.patch_resource_item.call_count == 3
+    assert bot.assets_client.patch_asset.call_count == 3
 
 
 def test_patch_assets_verification_success(bot, logger, mocker):
-    mock_patch_resource_item = mocker.MagicMock()
-    bot.assets_client.patch_resource_item = mock_patch_resource_item
+    mock_patch_asset = mocker.MagicMock()
+    bot.assets_client.patch_asset = mock_patch_asset
 
     with open(ROOT + 'lots.json') as lots:
         lots = load(lots)
@@ -221,7 +221,7 @@ def test_patch_assets_verification_success(bot, logger, mocker):
     lot = lots[0]['data']
     status = 'verification'
 
-    mock_patch_resource_item.side_effect = [
+    mock_patch_asset.side_effect = [
         munchify(assets[0]),
         munchify(assets[1]),
         munchify(assets[2]),
@@ -243,12 +243,12 @@ def test_patch_assets_verification_success(bot, logger, mocker):
     assert log_strings[2] == 'Successfully patched asset f00d0ae5032f4927a4e0c046cafd3c62 to verification'
     assert log_strings[3] == 'Successfully patched asset c1c043ba1e3d457c8632c3b48c7279a4 to verification'
 
-    assert bot.assets_client.patch_resource_item.call_count == 4
+    assert bot.assets_client.patch_asset.call_count == 4
 
 
 def test_patch_assets_active_fail(bot, logger, mocker):
-    mock_patch_resource_item = mocker.MagicMock()
-    bot.assets_client.patch_resource_item = mock_patch_resource_item
+    mock_patch_asset = mocker.MagicMock()
+    bot.assets_client.patch_asset = mock_patch_asset
 
     with open(ROOT + 'lots.json') as lots:
         lots = load(lots)
@@ -259,7 +259,7 @@ def test_patch_assets_active_fail(bot, logger, mocker):
     lot = lots[0]['data']
     status = 'verification'
 
-    mock_patch_resource_item.side_effect = [
+    mock_patch_asset.side_effect = [
         munchify(assets[0]),
         munchify(assets[1]),
         RequestFailed(response=munchify({"text": "Request failed.", "status_code": 502})),
@@ -275,7 +275,7 @@ def test_patch_assets_active_fail(bot, logger, mocker):
     assert log_strings[1] == 'Successfully patched asset 64099f8259c64215b3bd290bc12ec73a to verification'
     assert log_strings[2] == 'Failed to patch asset f00d0ae5032f4927a4e0c046cafd3c62 to verification (Server error: 502)'
 
-    assert bot.assets_client.patch_resource_item.call_count == 3
+    assert bot.assets_client.patch_asset.call_count == 3
 
 
 def test_process_lots(bot, logger, mocker):

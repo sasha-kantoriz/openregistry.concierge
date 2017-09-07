@@ -153,7 +153,7 @@ class BotWorker(object):
         for asset_id in lot['assets']:
             asset = {"data": {"status": status, "relatedLot": related_lot}}
             try:
-                self.assets_client.patch_resource_item(asset_id, asset)
+                self.assets_client.patch_asset(asset_id, asset)
             except EXCEPTIONS as e:
                 message = e.message
                 if e.status_code >= 500:
@@ -167,7 +167,7 @@ class BotWorker(object):
 
     def patch_lot(self, lot, status):
         try:
-            self.lots_client.patch_resource_item(lot['id'], {"data": {"status": status}})
+            self.lots_client.patch_lot(lot['id'], {"data": {"status": status}})
         except EXCEPTIONS as e:
             message = e.message
             if e.status_code >= 500:
