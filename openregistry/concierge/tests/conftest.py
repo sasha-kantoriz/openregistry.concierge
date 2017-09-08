@@ -15,7 +15,8 @@ TEST_CONFIG = {
         "password": "",
         "filter": "lots/status"
     },
-    "time_to_sleep": 10,
+    "errors_doc": "broken_lots",
+    "time_to_sleep": 2,
     "lots": {
         "api": {
             "url": "http://192.168.50.9",
@@ -67,4 +68,4 @@ class AlmostAlwaysTrue(object):
 
 @pytest.fixture(scope='function')
 def almost_always_true():
-    return AlmostAlwaysTrue(2)
+    return AlmostAlwaysTrue
