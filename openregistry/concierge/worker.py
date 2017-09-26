@@ -114,8 +114,9 @@ class BotWorker(object):
                                 log_broken_lot(self.db, logger, self.errors_doc, lot, 'patching lot to active.salable')
                 else:
                     self.patch_lot(lot, "pending")
-        elif lot['status'] == 'dissolved':
+        elif lot['status'] == 'pending.dissolution':
             self.patch_assets(lot, 'pending')
+            self.patch_lot(lot, 'dissolved')
 
     def check_lot(self, lot):
         try:

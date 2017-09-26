@@ -39,7 +39,7 @@
    },
    {
       "data":{
-         "status":"dissolved",
+         "status":"pending.dissolution",
          "lotID":"UA-2017-08-29-000002",
          "description":"Lot with new client",
          "title":"Lot with new client",

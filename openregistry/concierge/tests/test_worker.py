@@ -286,7 +286,8 @@ def test_process_lots(bot, logger, mocker):
     mock_check_assets.side_effect = [
         True, True,
         False,
-        RequestFailed(response=munchify({"text": "Request failed."}))
+        RequestFailed(response=munchify({"text": "Request failed."})),
+        False
     ]
 
     mock_patch_assets = mocker.patch.object(bot, 'patch_assets', autospec=True)
