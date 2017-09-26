@@ -115,8 +115,13 @@ class BotWorker(object):
                 else:
                     self.patch_lot(lot, "pending")
         elif lot['status'] == 'pending.dissolution':
-            self.patch_assets(lot, 'pending')
-            self.patch_lot(lot, 'dissolved')
+            if self.check_assets(lot, 'active'):
+                self.patch_assets(lot, 'pending')
+                self.patch_lot(lot, 'dissolved')
+                logger.info("Assets {} from lot {} will be patched to 'pending'".format(lot['assets'], lot['id']))
+            else:
+                logger.warning("Not valid assets {} in lot {}".format(lot['assets'], lot['id']))
+
 
     def check_lot(self, lot):
         try:
@@ -128,12 +133,12 @@ class BotWorker(object):
         except RequestFailed as e:
             logger.error('Falied to get lot {0}. Status code: {1}'.format(lot['id'], e.status_code))
             return False
-        if lot.status != 'verification' and lot.status != 'dissolved':
+        if lot.status != 'verification' and lot.status != 'pending.dissolution':
             logger.warning("Lot {0} can not be processed in current status ('{1}')".format(lot.id, lot.status))
             return False
         return True
 
-    def check_assets(self, lot):
+    def check_assets(self, lot, status='pending'):
         for asset_id in lot['assets']:
             try:
                 asset = self.assets_client.get_asset(asset_id).data
@@ -145,7 +150,9 @@ class BotWorker(object):
             except RequestFailed as e:
                 logger.error('Falied to get asset {0}. Status code: {1}'.format(asset_id, e.status_code))
                 raise RequestFailed('Failed to get assets')
-            if asset.status != 'pending':
+            if asset.status != status:
+                return False
+            if asset.relatedLot != lot['id']:
                 return False
         return True
 
