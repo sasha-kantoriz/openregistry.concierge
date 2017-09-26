@@ -48,12 +48,14 @@ def test_run(bot, logger, mocker, almost_always_true):
         lot['data']['rev'] = '123'
     mock_get_lot.return_value = (lot['data'] for lot in lots)
 
-    mocker.patch('openregistry.concierge.worker.True', almost_always_true(2))
+    mocker.patch('openregistry.concierge.worker.True', almost_always_true(3))
 
     if bot.errors_doc.get(lots[0]['data']['id'], None):
         del bot.errors_doc[lots[0]['data']['id']]
     if bot.errors_doc.get(lots[1]['data']['id'], None):
         del bot.errors_doc[lots[1]['data']['id']]
+    if bot.errors_doc.get(lots[2]['data']['id'], None):
+        del bot.errors_doc[lots[2]['data']['id']]
     bot.db.save(bot.errors_doc)
 
     bot.run()
@@ -61,11 +63,12 @@ def test_run(bot, logger, mocker, almost_always_true):
     log_strings = logger.log_capture_string.getvalue().split('\n')
     assert log_strings[0] == "Starting worker"
 
-    assert mock_get_lot.call_count is 2
-    assert mock_process_lots.call_count == 2
+    assert mock_get_lot.call_count is 3
+    assert mock_process_lots.call_count == 3
 
     assert mock_process_lots.call_args_list[0][0][0] == lots[0]['data']
     assert mock_process_lots.call_args_list[1][0][0] == lots[1]['data']
+    assert mock_process_lots.call_args_list[2][0][0] == lots[2]['data']
 
     error_lots = deepcopy(lots)
     error_lots[1]['data']['rev'] = '234'
@@ -80,10 +83,10 @@ def test_run(bot, logger, mocker, almost_always_true):
     log_strings = logger.log_capture_string.getvalue().split('\n')
     assert log_strings[0] == "Starting worker"
 
-    assert mock_get_lot.call_count is 4
-    assert mock_process_lots.call_count == 3
+    assert mock_get_lot.call_count is 5
+    assert mock_process_lots.call_count == 4
 
-    assert mock_process_lots.call_args_list[2][0][0] == error_lots[1]['data']
+    assert mock_process_lots.call_args_list[3][0][0] == error_lots[1]['data']
 
 
 def test_patch_lot(bot, logger, mocker):
