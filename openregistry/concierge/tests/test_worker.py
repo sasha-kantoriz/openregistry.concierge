@@ -29,6 +29,7 @@ def test_get_lot(bot, logger, mocker):
 
     assert result.next() == lots[0]['data']
     assert result.next() == lots[1]['data']
+    assert result.next() == lots[2]['data']
 
     with pytest.raises(StopIteration):
         result.next()
@@ -47,12 +48,14 @@ def test_run(bot, logger, mocker, almost_always_true):
         lot['data']['rev'] = '123'
     mock_get_lot.return_value = (lot['data'] for lot in lots)
 
-    mocker.patch('openregistry.concierge.worker.True', almost_always_true(2))
+    mocker.patch('openregistry.concierge.worker.True', almost_always_true(3))
 
     if bot.errors_doc.get(lots[0]['data']['id'], None):
         del bot.errors_doc[lots[0]['data']['id']]
     if bot.errors_doc.get(lots[1]['data']['id'], None):
         del bot.errors_doc[lots[1]['data']['id']]
+    if bot.errors_doc.get(lots[2]['data']['id'], None):
+        del bot.errors_doc[lots[2]['data']['id']]
     bot.db.save(bot.errors_doc)
 
     bot.run()
@@ -60,11 +63,12 @@ def test_run(bot, logger, mocker, almost_always_true):
     log_strings = logger.log_capture_string.getvalue().split('\n')
     assert log_strings[0] == "Starting worker"
 
-    assert mock_get_lot.call_count is 2
-    assert mock_process_lots.call_count == 2
+    assert mock_get_lot.call_count is 3
+    assert mock_process_lots.call_count == 3
 
     assert mock_process_lots.call_args_list[0][0][0] == lots[0]['data']
     assert mock_process_lots.call_args_list[1][0][0] == lots[1]['data']
+    assert mock_process_lots.call_args_list[2][0][0] == lots[2]['data']
 
     error_lots = deepcopy(lots)
     error_lots[1]['data']['rev'] = '234'
@@ -79,10 +83,10 @@ def test_run(bot, logger, mocker, almost_always_true):
     log_strings = logger.log_capture_string.getvalue().split('\n')
     assert log_strings[0] == "Starting worker"
 
-    assert mock_get_lot.call_count is 4
-    assert mock_process_lots.call_count == 3
+    assert mock_get_lot.call_count is 5
+    assert mock_process_lots.call_count == 4
 
-    assert mock_process_lots.call_args_list[2][0][0] == error_lots[1]['data']
+    assert mock_process_lots.call_args_list[3][0][0] == error_lots[1]['data']
 
 
 def test_patch_lot(bot, logger, mocker):
@@ -146,17 +150,17 @@ def test_patch_assets_pending_success(bot, logger, mocker):
     result, patched_assets = bot.patch_assets(lot=lot, status=status)
     assert result is True
     assert patched_assets == [
-        '0a7eba27b22a454180d3a49b02a1842f',
-        '660cbb6e83c94c80baf47691732fd1b2',
         '8034c43e2d764006ad6e655e339e5fec',
-        '5545b519045a4637ab880f032960e034'
+        '5545b519045a4637ab880f032960e034',
+        '0a7eba27b22a454180d3a49b02a1842f',
+        '660cbb6e83c94c80baf47691732fd1b2'
     ]
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
-    assert log_strings[0] == 'Successfully patched asset 0a7eba27b22a454180d3a49b02a1842f to pending'
-    assert log_strings[1] == 'Successfully patched asset 660cbb6e83c94c80baf47691732fd1b2 to pending'
-    assert log_strings[2] == 'Successfully patched asset 8034c43e2d764006ad6e655e339e5fec to pending'
-    assert log_strings[3] == 'Successfully patched asset 5545b519045a4637ab880f032960e034 to pending'
+    assert log_strings[0] == 'Successfully patched asset 8034c43e2d764006ad6e655e339e5fec to pending'
+    assert log_strings[1] == 'Successfully patched asset 5545b519045a4637ab880f032960e034 to pending'
+    assert log_strings[2] == 'Successfully patched asset 0a7eba27b22a454180d3a49b02a1842f to pending'
+    assert log_strings[3] == 'Successfully patched asset 660cbb6e83c94c80baf47691732fd1b2 to pending'
 
     assert bot.assets_client.patch_asset.call_count == 4
 
@@ -183,11 +187,11 @@ def test_patch_assets_pending_fail(bot, logger, mocker):
 
     result, patched_assets = bot.patch_assets(lot=lot, status=status)
     assert result is False
-    assert patched_assets == ['0a7eba27b22a454180d3a49b02a1842f']
+    assert patched_assets == ['8034c43e2d764006ad6e655e339e5fec']
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
-    assert log_strings[0] == 'Successfully patched asset 0a7eba27b22a454180d3a49b02a1842f to pending'
-    assert log_strings[1] == 'Failed to patch asset 660cbb6e83c94c80baf47691732fd1b2 to pending (Server error: 502)'
+    assert log_strings[0] == 'Successfully patched asset 8034c43e2d764006ad6e655e339e5fec to pending'
+    assert log_strings[1] == 'Failed to patch asset 5545b519045a4637ab880f032960e034 to pending (Server error: 502)'
 
     assert bot.assets_client.patch_asset.call_count == 2
 
@@ -203,7 +207,7 @@ def test_patch_assets_pending_fail(bot, logger, mocker):
     assert patched_assets == []
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
-    assert log_strings[2] == 'Failed to patch asset 0a7eba27b22a454180d3a49b02a1842f to pending (Operation is forbidden.)'
+    assert log_strings[2] == 'Failed to patch asset 8034c43e2d764006ad6e655e339e5fec to pending (Operation is forbidden.)'
 
     assert bot.assets_client.patch_asset.call_count == 3
 
@@ -280,19 +284,26 @@ def test_patch_assets_active_fail(bot, logger, mocker):
 
 def test_process_lots(bot, logger, mocker):
     mock_check_lot = mocker.patch.object(bot, 'check_lot', autospec=True)
-    mock_check_lot.side_effect = [True, True, True, True, True, False]
+    mock_check_lot.side_effect = [True, True, True, True, True, False, True]
 
     mock_check_assets = mocker.patch.object(bot, 'check_assets', autospec=True)
     mock_check_assets.side_effect = [
-        True, True,
+        True,
+        True,
         False,
-        RequestFailed(response=munchify({"text": "Request failed."}))
+        RequestFailed(response=munchify({"text": "Request failed."})),
+        False,
+        True
     ]
 
     mock_patch_assets = mocker.patch.object(bot, 'patch_assets', autospec=True)
     mock_patch_assets.side_effect = [
         (False, []),
-        (True, []), (True, ['all_assets']), (True, ['all_assets']), (True, ['all_assets'])
+        (True, []),
+        (True, ['all_assets']),
+        (True, ['all_assets']),
+        (True, ['all_assets']),
+        (True, ['all_assets'])
     ]
 
     mock_patch_lot = mocker.patch.object(bot, 'patch_lot', autospec=True)
@@ -363,7 +374,7 @@ def test_process_lots(bot, logger, mocker):
     assert mock_check_lot.call_count == 4
     assert mock_check_lot.call_args[0] == (verification_lot,)
 
-    # status == 'dissolved'
+    # status == 'pending.dissolution'
     bot.process_lots(dissolved_lot)  # assets_available: None; patch_assets: (True, []); check_lot: True
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
@@ -372,17 +383,29 @@ def test_process_lots(bot, logger, mocker):
     assert mock_check_lot.call_count == 5
     assert mock_check_lot.call_args[0] == (dissolved_lot,)
 
-    assert mock_patch_assets.call_count == 4
-    assert mock_patch_assets.call_args[0] == (dissolved_lot, 'pending')
-
     # lot is not available
     bot.process_lots(dissolved_lot)  # assets_available: None; patch_assets: None; check_lot: False
 
     log_strings = logger.log_capture_string.getvalue().split('\n')
-    assert log_strings[6] == 'Skipping lot b844573afaa24e4fb098f3027e605c87'
+    assert log_strings[6] == 'Not valid assets {} in lot {}'.format(dissolved_lot['assets'], dissolved_lot['id'])
 
     assert mock_check_lot.call_count == 6
     assert mock_check_lot.call_args[0] == (dissolved_lot,)
+
+    dissolved_lot = lots[2]['data']
+    bot.process_lots(dissolved_lot)
+
+    log_strings = logger.log_capture_string.getvalue().split('\n')
+    assert log_strings[9] == "Assets {} from lot {} will be patched to 'pending'".format(dissolved_lot['assets'],
+                                                                                         dissolved_lot['id'])
+    assert mock_check_lot.call_count == 7
+    assert mock_check_lot.call_args[0] == (dissolved_lot,)
+
+    assert mock_check_assets.call_count == 6
+    assert mock_check_assets.call_args[0] == (dissolved_lot, 'active')
+
+    assert mock_patch_assets.call_count == 4
+    assert mock_patch_assets.call_args[0] == (dissolved_lot, 'pending')
 
 
 def test_process_lots_broken(bot, logger, mocker):
