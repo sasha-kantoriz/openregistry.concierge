@@ -150,7 +150,9 @@ class BotWorker(object):
             except RequestFailed as e:
                 logger.error('Falied to get asset {0}. Status code: {1}'.format(asset_id, e.status_code))
                 raise RequestFailed('Failed to get assets')
-            if asset.status != status or asset.relatedLot != lot['id']:
+            if asset.status != status:
+                return False
+            if 'relatedLot' in asset and asset.get('realtedLot') != lot['id']:
                 return False
         return True
 
