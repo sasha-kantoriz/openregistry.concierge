@@ -26,6 +26,9 @@ test_require = {
 entry_points = {
     'console_scripts': [
         'concierge_worker = openregistry.concierge.worker:main'
+    ],
+    'openregistry.pytests': [
+        'concierge = openregistry.concierge.tests.main:suite'
     ]
 }
 
@@ -50,6 +53,6 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=requires,
-    extras_require={'test': test_require['test']},
+    extras_require=test_require,
     entry_points=entry_points
 )
