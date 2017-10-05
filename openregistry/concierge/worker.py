@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import argparse
 import logging
+import logging.config
 import os
 import time
 import yaml
@@ -22,13 +23,6 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-ch.setFormatter(
-    logging.Formatter('[%(asctime)s %(levelname)-5.5s] %(message)s')
-)
-logger.addHandler(ch)
 
 EXCEPTIONS = (Forbidden, RequestFailed, ResourceNotFound, UnprocessableEntity)
 
@@ -187,12 +181,13 @@ class BotWorker(object):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='---- Labot Worker ----')
+    parser = argparse.ArgumentParser(description='---- OpenRegistry Concierge ----')
     parser.add_argument('config', type=str, help='Path to configuration file')
     params = parser.parse_args()
     if os.path.isfile(params.config):
         with open(params.config) as config_object:
             config = yaml.load(config_object.read())
+        logging.config.dictConfig(config)
         BotWorker(config).run()
 
 
