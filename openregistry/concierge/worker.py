@@ -162,7 +162,8 @@ class BotWorker(object):
                 logger.error("Failed to patch asset {} to {} ({})".format(asset_id, status, message))
                 return False, patched_assets
             else:
-                logger.info("Successfully patched asset {} to {}".format(asset_id, status))
+                logger.info("Successfully patched asset {} to {}".format(asset_id, status),
+                            extra={'MESSAGE_ID': 'patch_asset'})
                 patched_assets.append(asset_id)
         return True, patched_assets
 
@@ -176,7 +177,8 @@ class BotWorker(object):
             logger.error("Failed to patch lot {} to {} ({})".format(lot['id'], status, message))
             return False
         else:
-            logger.info("Successfully patched lot {} to {}".format(lot['id'], status))
+            logger.info("Successfully patched lot {} to {}".format(lot['id'], status),
+                        extra={'MESSAGE_ID': 'patch_lot'})
             return True
 
 
