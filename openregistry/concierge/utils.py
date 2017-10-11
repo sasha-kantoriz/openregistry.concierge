@@ -5,6 +5,10 @@ from socket import error
 from .design import sync_design
 
 CONTINUOUS_CHANGES_FEED_FLAG = True
+STATUS_FILTER = """function(doc, req) {
+  if(doc.status == "verification" || doc.status == "pending.dissolution") {return true;}
+    return false;
+}"""
 
 
 class ConfigError(Exception):
@@ -23,11 +27,25 @@ def prepare_couchdb(couch_url, db_name, logger, errors_doc):
         if broken_lots is None:
             db[errors_doc] = {}
 
+        prepare_couchdb_filter(db, 'lots', 'status', STATUS_FILTER, logger)
+
     except error as e:
         logger.error('Database error: {}'.format(e.message))
         raise ConfigError(e.strerror)
     sync_design(db)
     return db
+
+
+def prepare_couchdb_filter(db, doc, filter_name, filter, logger):
+    design_doc = db['_design/{}'.format(doc)]
+    if not design_doc.get('filters', ''):
+        design_doc['filters'] = {}
+    if filter_name not in design_doc['filters']:
+        design_doc['filters'][filter_name] = filter
+        logger.debug('Successfully created {0}/{1} filter.'.format(doc, filter_name))
+    else:
+        logger.debug('Filter {0}/{1} already exists.'.format(doc, filter_name))
+    db.save(design_doc)
 
 
 def continuous_changes_feed(db, logger, limit=100, filter_doc='lots/status'):

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import couchdb
 import logging
 import pytest
 
@@ -35,7 +36,28 @@ TEST_CONFIG = {
 
 
 @pytest.fixture(scope='function')
-def bot(mocker):
+def db(request):
+
+    server = couchdb.Server("http://{host}:{port}".format(
+        **TEST_CONFIG['db']
+    ))
+    name = TEST_CONFIG['db']['name']
+
+    def delete():
+        del server[name]
+
+    if name in server:
+        delete()
+
+    db = server.create(name)
+    db['_design/lots'] = {}
+    db.save(db['_design/lots'])
+
+    request.addfinalizer(delete)
+
+
+@pytest.fixture(scope='function')
+def bot(mocker, db):
     mocker.patch('openregistry.concierge.worker.LotsClient', autospec=True)
     mocker.patch('openregistry.concierge.worker.AssetsClient', autospec=True)
     return BotWorker(TEST_CONFIG)
