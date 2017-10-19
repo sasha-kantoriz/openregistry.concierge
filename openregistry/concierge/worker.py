@@ -78,7 +78,8 @@ class BotWorker(object):
     def process_lots(self, lot):
         lot_available = self.check_lot(lot)
         if not lot_available:
-            logger.info("Skipping lot {}".format(lot['id']))
+            logger.info("Skipping lot {}".format(lot['id']),
+                        extra={'MESSAGE_ID': 'concierge_skip_lot'})
             return
         logger.info("Processing lot {}".format(lot['id']))
         if lot['status'] == 'verification':
@@ -108,13 +109,16 @@ class BotWorker(object):
                                 log_broken_lot(self.db, logger, self.errors_doc, lot, 'patching lot to active.salable')
                 else:
                     self.patch_lot(lot, "pending")
+                    logger.info("Invalid assets in lot {}".format(lot['id']),
+                                extra={'MESSAGE_ID': 'concierge_invalid_lot'})
         elif lot['status'] == 'pending.dissolution':
             if self.check_assets(lot, 'active'):
                 self.patch_assets(lot, 'pending')
                 self.patch_lot(lot, 'dissolved')
                 logger.info("Assets {} from lot {} will be patched to 'pending'".format(lot['assets'], lot['id']))
             else:
-                logger.warning("Not valid assets {} in lot {}".format(lot['assets'], lot['id']))
+                logger.warning("Not valid assets {} in lot {}".format(lot['assets'], lot['id']),
+                               extra={'MESSAGE_ID': 'concierge_invalid_lot'})
 
 
     def check_lot(self, lot):
@@ -159,11 +163,12 @@ class BotWorker(object):
                 message = e.message
                 if e.status_code >= 500:
                     message = 'Server error: {}'.format(e.status_code)
-                logger.error("Failed to patch asset {} to {} ({})".format(asset_id, status, message))
+                logger.error("Failed to patch asset {} to {} ({})".format(asset_id, status, message),
+                        extra={'MESSAGE_ID': 'concierge_patch_fail'})
                 return False, patched_assets
             else:
                 logger.info("Successfully patched asset {} to {}".format(asset_id, status),
-                            extra={'MESSAGE_ID': 'patch_asset'})
+                            extra={'MESSAGE_ID': 'concierge_patch_asset'})
                 patched_assets.append(asset_id)
         return True, patched_assets
 
@@ -174,11 +179,12 @@ class BotWorker(object):
             message = e.message
             if e.status_code >= 500:
                 message = 'Server error: {}'.format(e.status_code)
-            logger.error("Failed to patch lot {} to {} ({})".format(lot['id'], status, message))
+            logger.error("Failed to patch lot {} to {} ({})".format(lot['id'], status, message),
+                        extra={'MESSAGE_ID': 'concierge_patch_fail'})
             return False
         else:
             logger.info("Successfully patched lot {} to {}".format(lot['id'], status),
-                        extra={'MESSAGE_ID': 'patch_lot'})
+                        extra={'MESSAGE_ID': 'concierge_patch_lot'})
             return True
 
 
